@@ -1,0 +1,27 @@
+# 의존성
+node_modules/
+
+# 빌드 산출물
+build/
+dist/
+target/
+
+# Gradle
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.settings/
+.idea/
+.vscode/
+*.iml
+*.classpath
+*.project
+*.factorypath
+
+# Git
+.git/
+
+# 로그
+logs/
+*.log
