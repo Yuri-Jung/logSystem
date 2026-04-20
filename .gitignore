@@ -1,0 +1,63 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+*.code-workspace
+
+### OS Files ###
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+### Logs ###
+*.log
+logs/
+
+### Secrets & Configs ###
+# 중요: 실제 DB 비밀번호나 API 키가 들어있는 설정 파일은 올리지 않도록 주의합니다.
+# application.yml  # (만약 모든 환경변수를 여기에 넣는다면 주석 해제)
+application-secret.yml
+application-prod.yml
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks

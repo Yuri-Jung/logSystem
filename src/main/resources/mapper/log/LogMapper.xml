@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.logSystem.log.repository.LogMapper">
+
+    <insert id="insertLog" parameterType="Log">
+        INSERT INTO log (level, message, source, created_at)
+        VALUES (#{level}, #{message}, #{source}, #{createdAt})
+    </insert>
+
+    <select id="findAllLogs" resultType="Log">
+        SELECT id, level, message, source, created_at
+        FROM log
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findLogById" resultType="Log">
+        SELECT id, level, message, source, created_at
+        FROM log
+        WHERE id = #{id}
+    </select>
+
+</mapper>
