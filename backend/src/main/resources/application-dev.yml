@@ -1,0 +1,26 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # 로컬/개발 환경 Datasource (.env 참조)
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DEV_DB_URL}
+    username: ${DEV_DB_USERNAME}
+    password: ${DEV_DB_PASSWORD}
+    hikari:
+      pool-name: LogSystemHikariPool-Dev
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+# 로컬/개발 환경 로깅 설정
+logging:
+  level:
+    root: INFO
+    com.logSystem: DEBUG
+    # MyBatis 실행 쿼리 및 파라미터 로깅
+    com.logSystem.log.repository: TRACE
