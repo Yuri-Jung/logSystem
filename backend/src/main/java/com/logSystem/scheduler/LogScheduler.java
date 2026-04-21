@@ -11,7 +11,7 @@ public class LogScheduler {
     // 매일 자정에 실행 (예시)
     @Scheduled(cron = "0 0 0 * * ?")
     public void cleanupOldLogs() {
-        log.info("오래된 로그 정리 스케줄러 실행"); 
+        log.info("오래된 로그 정리 스케줄러 실행");
         // TODO: 구현 필요
     }
 }
