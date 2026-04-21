@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "api-log.schema.json",
+  "title": "ApiLog",
+  "description": "서비스로 인입되는 HTTP 요청/응답에 대한 로그. TraceId를 최초 생성하는 진입점.",
+  "type": "object",
+  "required": ["traceId", "spanId", "logType", "timestamp", "level", "service", "environment", "http", "request", "response"],
+  "properties": {
+    "traceId":      { "type": "string", "format": "uuid" },
+    "spanId":       { "type": "string", "format": "uuid" },
+    "parentSpanId": { "type": ["string", "null"], "format": "uuid" },
+    "logType":      { "type": "string", "const": "API" },
+    "timestamp":    { "type": "string", "format": "date-time" },
+    "level":        { "type": "string", "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] },
+    "service":      { "type": "string" },
+    "environment":  { "type": "string", "enum": ["local", "dev", "staging", "prod"] },
+    "host":         { "type": "string" },
+    "appVersion":   { "type": "string" },
+    "threadName":   { "type": "string" },
+
+    "http": {
+      "type": "object",
+      "description": "HTTP 트랜잭션 핵심 정보",
+      "required": ["method", "path", "statusCode", "durationMs"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+        },
+        "path": {
+          "type": "string",
+          "description": "경로 파라미터를 템플릿화한 URI (e.g. /api/logs/{id})"
+        },
+        "pathRaw": {
+          "type": "string",
+          "description": "실제 요청 URI (e.g. /api/logs/42)"
+        },
+        "query": {
+          "type": "string",
+          "description": "쿼리스트링 원문 (e.g. page=1&size=10)"
+        },
+        "statusCode": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "요청 수신부터 응답 완료까지의 처리 시간 (ms)"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "request": {
+      "type": "object",
+      "description": "수신 요청 상세",
+      "required": ["clientIp"],
+      "properties": {
+        "headers": {
+          "type": "object",
+          "description": "요청 헤더 (Authorization 등 민감 헤더는 마스킹)",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {
+          "description": "요청 바디. 민감 필드(password 등)는 수집 전 마스킹 필수",
+          "oneOf": [
+            { "type": "object" },
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "bodySize": {
+          "type": "integer",
+          "description": "요청 바디 크기 (bytes)"
+        },
+        "clientIp": {
+          "type": "string",
+          "description": "클라이언트 IP (X-Forwarded-For 우선 적용)"
+        },
+        "userAgent": {
+          "type": "string"
+        },
+        "referer": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "response": {
+      "type": "object",
+      "description": "송신 응답 상세",
+      "properties": {
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {
+          "description": "응답 바디 (에러 응답일 때 주로 기록)",
+          "oneOf": [
+            { "type": "object" },
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "bodySize": {
+          "type": "integer",
+          "description": "응답 바디 크기 (bytes)"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "auth": {
+      "type": "object",
+      "description": "인증/인가 컨텍스트",
+      "properties": {
+        "userId": {
+          "type": ["string", "null"],
+          "description": "인증된 사용자 ID. 미인증 요청은 null"
+        },
+        "roles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "사용자 역할 목록"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+
+  "additionalProperties": false,
+
+  "examples": [
+    {
+      "traceId": "550e8400-e29b-41d4-a716-446655440000",
+      "spanId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "parentSpanId": null,
+      "logType": "API",
+      "timestamp": "2026-04-21T10:00:00.123Z",
+      "level": "INFO",
+      "service": "logsystem-backend",
+      "environment": "local",
+      "host": "localhost",
+      "appVersion": "0.0.1-SNAPSHOT",
+      "threadName": "http-nio-8080-exec-1",
+      "http": {
+        "method": "GET",
+        "path": "/api/logs",
+        "pathRaw": "/api/logs",
+        "query": "page=1&size=10",
+        "statusCode": 200,
+        "durationMs": 45
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ***MASKED***"
+        },
+        "body": null,
+        "bodySize": 0,
+        "clientIp": "127.0.0.1",
+        "userAgent": "Mozilla/5.0"
+      },
+      "response": {
+        "body": null,
+        "bodySize": 1024
+      },
+      "auth": {
+        "userId": "user-001",
+        "roles": ["ROLE_USER"]
+      }
+    }
+  ]
+}

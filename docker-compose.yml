@@ -1,0 +1,176 @@
+version: "3.8"
+
+services:
+  # ─────────────────────────────────────────
+  # Zookeeper (Kafka 의존성)
+  # ─────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: logsystem-zookeeper
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_HEAP_OPTS: "-Xmx128m -Xms64m"
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ─────────────────────────────────────────
+  # Kafka
+  # ─────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: logsystem-kafka
+    restart: unless-stopped
+    mem_limit: 512m
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_LOG_SEGMENT_BYTES: 10485760      # 10MB (기본 1GB → 저사양 절감)
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      KAFKA_HEAP_OPTS: "-Xmx384m -Xms256m"
+      KAFKA_JVM_PERFORMANCE_OPTS: "-XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+ExplicitGCInvokesConcurrent"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # ─────────────────────────────────────────
+  # MySQL
+  # ─────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: logsystem-mysql
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234
+      MYSQL_DATABASE: logsystem
+      MYSQL_USER: loguser
+      MYSQL_PASSWORD: logpass1234
+    ports:
+      - "3307:3306"   # 로컬 MySQL(3306) 충돌 방지 — 호스트에서는 3307로 접근
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d   # 초기 SQL 스크립트 디렉토리
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --innodb-buffer-pool-size=128M
+      --innodb-log-file-size=32M
+      --innodb-flush-method=O_DIRECT
+      --max-connections=100
+      --performance-schema=OFF
+      --skip-log-bin
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot1234"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ─────────────────────────────────────────
+  # Spring Boot Backend
+  # ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: logsystem-backend:local
+    container_name: logsystem-backend
+    restart: unless-stopped
+    mem_limit: 512m
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      # .env의 127.0.0.1 대신 Docker 내부 서비스명(mysql)으로 오버라이드
+      DEV_DB_URL: "jdbc:mysql://mysql:3306/logsystem?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true"
+      DEV_DB_USERNAME: root
+      DEV_DB_PASSWORD: root1234
+    ports:
+      - "8082:8080"   # 로컬 실행 중인 앱(8080, 8081) 충돌 방지
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/test"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ─────────────────────────────────────────
+  # Elasticsearch
+  # ─────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: logsystem-elasticsearch
+    restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false          # 로컬 개발 환경 — 인증 비활성화
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xmx512m -Xms512m
+      - bootstrap.memory_lock=false           # mem_limit 사용 시 mlockall 불필요
+      - indices.memory.index_buffer_size=10%
+      - thread_pool.write.queue_size=100
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qv '\"status\":\"red\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+# ─────────────────────────────────────────
+# Named Volumes
+# ─────────────────────────────────────────
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
+  mysql-data:
+  elasticsearch-data:
+
+# ─────────────────────────────────────────
+# Network
+# ─────────────────────────────────────────
+networks:
+  default:
+    name: logsystem-network

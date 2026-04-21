@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "base-log.schema.json",
+  "title": "BaseLog",
+  "description": "모든 로그 타입이 공유하는 공통 필드 정의",
+  "type": "object",
+  "required": ["traceId", "spanId", "logType", "timestamp", "level", "service", "environment"],
+  "properties": {
+    "traceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "하나의 요청 흐름 전체를 묶는 식별자. 최초 진입점(API 수신)에서 생성되어 모든 하위 작업에 전파된다."
+    },
+    "spanId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "이 로그가 속한 개별 작업 단위의 식별자"
+    },
+    "parentSpanId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "부모 span의 식별자. 최상위 span(API 진입)은 null"
+    },
+    "logType": {
+      "type": "string",
+      "enum": ["API", "DB", "EXTERNAL_API", "ERROR"],
+      "description": "로그 종류 식별자 (타입별 페이로드 스키마 결정)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "로그 발생 시각 (ISO 8601, UTC)"
+    },
+    "level": {
+      "type": "string",
+      "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"],
+      "description": "로그 심각도"
+    },
+    "service": {
+      "type": "string",
+      "description": "로그를 발생시킨 서비스 이름",
+      "examples": ["logsystem-backend", "logsystem-worker"]
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["local", "dev", "staging", "prod"],
+      "description": "배포 환경"
+    },
+    "host": {
+      "type": "string",
+      "description": "로그를 발생시킨 호스트명 또는 Pod 이름"
+    },
+    "appVersion": {
+      "type": "string",
+      "description": "애플리케이션 버전",
+      "examples": ["0.0.1-SNAPSHOT", "1.2.3"]
+    },
+    "threadName": {
+      "type": "string",
+      "description": "로그를 기록한 스레드 이름 (비동기 추적용)"
+    }
+  },
+  "additionalProperties": false
+}

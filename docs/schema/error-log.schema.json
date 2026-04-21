@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "error-log.schema.json",
+  "title": "ErrorLog",
+  "description": "예외/에러 발생에 대한 로그. 다른 로그 타입에서 에러 발생 시 별도 ErrorLog를 추가 생성하여 동일 traceId로 연결.",
+  "type": "object",
+  "required": ["traceId", "spanId", "parentSpanId", "logType", "timestamp", "level", "service", "environment", "error"],
+  "properties": {
+    "traceId":      { "type": "string", "format": "uuid" },
+    "spanId":       { "type": "string", "format": "uuid" },
+    "parentSpanId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "에러가 발생한 span의 spanId (API/DB/EXTERNAL_API span)"
+    },
+    "logType":     { "type": "string", "const": "ERROR" },
+    "timestamp":   { "type": "string", "format": "date-time" },
+    "level":       { "type": "string", "enum": ["WARN", "ERROR"] },
+    "service":     { "type": "string" },
+    "environment": { "type": "string", "enum": ["local", "dev", "staging", "prod"] },
+    "host":        { "type": "string" },
+    "appVersion":  { "type": "string" },
+    "threadName":  { "type": "string" },
+
+    "error": {
+      "type": "object",
+      "description": "에러/예외 상세 정보",
+      "required": ["type", "message"],
+      "properties": {
+        "code": {
+          "type": ["string", "null"],
+          "description": "도메인 정의 에러 코드 (e.g. ERR_DB_TIMEOUT, ERR_VALIDATION_FAILED)",
+          "examples": ["ERR_DB_TIMEOUT", "ERR_EXTERNAL_API_5XX", "ERR_NOT_FOUND"]
+        },
+        "type": {
+          "type": "string",
+          "description": "예외 클래스 전체 경로",
+          "examples": ["java.sql.SQLTimeoutException", "com.logSystem.common.exception.NotFoundException"]
+        },
+        "message": {
+          "type": "string",
+          "description": "예외 메시지"
+        },
+        "stackTrace": {
+          "type": ["string", "null"],
+          "description": "스택 트레이스 전문. prod 환경에서는 민감 정보 제거 후 기록"
+        },
+        "cause": {
+          "type": ["object", "null"],
+          "description": "원인 예외 (중첩 예외 체인의 첫 번째 cause)",
+          "properties": {
+            "type":       { "type": "string" },
+            "message":    { "type": "string" },
+            "stackTrace": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "context": {
+      "type": "object",
+      "description": "에러가 발생한 작업의 컨텍스트 정보",
+      "properties": {
+        "originLogType": {
+          "type": "string",
+          "enum": ["API", "DB", "EXTERNAL_API"],
+          "description": "에러를 유발한 원본 로그 타입"
+        },
+        "originSpanId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "에러가 발생한 원본 span의 spanId"
+        },
+        "httpMethod":   { "type": "string", "description": "에러 발생 시 처리 중이던 HTTP 메서드" },
+        "httpPath":     { "type": "string", "description": "에러 발생 시 처리 중이던 HTTP 경로" },
+        "httpStatus":   { "type": "integer", "description": "클라이언트에 반환된 HTTP 상태 코드" },
+        "userId":       { "type": ["string", "null"], "description": "에러 발생 시 인증된 사용자 ID" },
+        "additionalInfo": {
+          "type": "object",
+          "description": "에러 재현에 필요한 추가 컨텍스트 (자유 형식)",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "alert": {
+      "type": "object",
+      "description": "알림 발송 여부 추적",
+      "properties": {
+        "sent": {
+          "type": "boolean",
+          "description": "알림 발송 여부"
+        },
+        "channel": {
+          "type": "string",
+          "enum": ["SLACK", "EMAIL", "PAGERDUTY", "NONE"],
+          "description": "알림 채널"
+        },
+        "sentAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+
+  "additionalProperties": false,
+
+  "examples": [
+    {
+      "traceId": "550e8400-e29b-41d4-a716-446655440000",
+      "spanId": "bcde1234-5678-90ab-cdef-1234567890ab",
+      "parentSpanId": "7fa3c920-1abc-42de-b312-99fc12ab3451",
+      "logType": "ERROR",
+      "timestamp": "2026-04-21T10:00:00.162Z",
+      "level": "ERROR",
+      "service": "logsystem-backend",
+      "environment": "local",
+      "host": "localhost",
+      "appVersion": "0.0.1-SNAPSHOT",
+      "threadName": "http-nio-8080-exec-1",
+      "error": {
+        "code": "ERR_DB_TIMEOUT",
+        "type": "java.sql.SQLTimeoutException",
+        "message": "Timeout after 30000ms waiting for connection from pool",
+        "stackTrace": "java.sql.SQLTimeoutException: Timeout...\n\tat com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:213)\n\t...",
+        "cause": {
+          "type": "java.util.concurrent.TimeoutException",
+          "message": "pool-3 - Connection is not available, request timed out after 30000ms",
+          "stackTrace": null
+        }
+      },
+      "context": {
+        "originLogType": "DB",
+        "originSpanId": "7fa3c920-1abc-42de-b312-99fc12ab3451",
+        "httpMethod": "GET",
+        "httpPath": "/api/logs",
+        "httpStatus": 500,
+        "userId": "user-001",
+        "additionalInfo": {
+          "datasource": "logsystem-primary",
+          "activeConnections": 10,
+          "pendingThreads": 5
+        }
+      },
+      "alert": {
+        "sent": true,
+        "channel": "SLACK",
+        "sentAt": "2026-04-21T10:00:00.500Z"
+      }
+    }
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "external-api-log.schema.json",
+  "title": "ExternalApiLog",
+  "description": "외부 서비스 또는 써드파티 API 호출(아웃바운드)에 대한 로그. RestTemplate / WebClient / HttpClient 인터셉터로 수집.",
+  "type": "object",
+  "required": ["traceId", "spanId", "parentSpanId", "logType", "timestamp", "level", "service", "environment", "target", "request", "response"],
+  "properties": {
+    "traceId":      { "type": "string", "format": "uuid" },
+    "spanId":       { "type": "string", "format": "uuid" },
+    "parentSpanId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "이 외부 호출을 유발한 부모 span의 spanId"
+    },
+    "logType":     { "type": "string", "const": "EXTERNAL_API" },
+    "timestamp":   { "type": "string", "format": "date-time" },
+    "level":       { "type": "string", "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] },
+    "service":     { "type": "string" },
+    "environment": { "type": "string", "enum": ["local", "dev", "staging", "prod"] },
+    "host":        { "type": "string" },
+    "appVersion":  { "type": "string" },
+    "threadName":  { "type": "string" },
+
+    "target": {
+      "type": "object",
+      "description": "호출 대상 외부 서비스 정보",
+      "required": ["service", "url", "method", "durationMs"],
+      "properties": {
+        "service": {
+          "type": "string",
+          "description": "호출 대상 서비스 이름 (식별 불가 시 도메인명)",
+          "examples": ["payment-service", "slack-api", "firebase-fcm"]
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "호출한 전체 URL (쿼리스트링 포함)"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+        },
+        "statusCode": {
+          "type": ["integer", "null"],
+          "minimum": 100,
+          "maximum": 599,
+          "description": "응답 HTTP 상태 코드. 타임아웃/네트워크 오류 시 null"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "요청 발송부터 응답 수신 완료까지의 시간 (ms)"
+        },
+        "isTimeout": {
+          "type": "boolean",
+          "description": "타임아웃 발생 여부"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "재시도 횟수 (0 = 최초 시도에서 완료)"
+        },
+        "circuitBreakerState": {
+          "type": ["string", "null"],
+          "enum": ["CLOSED", "OPEN", "HALF_OPEN", null],
+          "description": "서킷브레이커 상태 (Resilience4j 등 사용 시)"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "request": {
+      "type": "object",
+      "description": "아웃바운드 요청 상세",
+      "properties": {
+        "headers": {
+          "type": "object",
+          "description": "요청 헤더 (API Key 등 민감 헤더는 마스킹 필수)",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {
+          "description": "요청 바디",
+          "oneOf": [
+            { "type": "object" },
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "bodySize": {
+          "type": "integer",
+          "description": "요청 바디 크기 (bytes)"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "response": {
+      "type": "object",
+      "description": "인바운드 응답 상세",
+      "properties": {
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {
+          "description": "응답 바디 (실패/에러 응답 시 주로 기록)",
+          "oneOf": [
+            { "type": "object" },
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "bodySize": {
+          "type": "integer",
+          "description": "응답 바디 크기 (bytes)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+
+  "additionalProperties": false,
+
+  "examples": [
+    {
+      "traceId": "550e8400-e29b-41d4-a716-446655440000",
+      "spanId": "9cd4e731-2bcd-43ef-c423-aafe23bc4562",
+      "parentSpanId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "logType": "EXTERNAL_API",
+      "timestamp": "2026-04-21T10:00:00.200Z",
+      "level": "INFO",
+      "service": "logsystem-backend",
+      "environment": "local",
+      "host": "localhost",
+      "appVersion": "0.0.1-SNAPSHOT",
+      "threadName": "http-nio-8080-exec-1",
+      "target": {
+        "service": "slack-api",
+        "url": "https://hooks.slack.com/services/T00000/B00000/XXXXXXXX",
+        "method": "POST",
+        "statusCode": 200,
+        "durationMs": 230,
+        "isTimeout": false,
+        "retryCount": 0,
+        "circuitBreakerState": "CLOSED"
+      },
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ***MASKED***"
+        },
+        "body": { "text": "에러 알림: DB 연결 실패" },
+        "bodySize": 64
+      },
+      "response": {
+        "headers": { "Content-Type": "text/plain" },
+        "body": "ok",
+        "bodySize": 2
+      }
+    }
+  ]
+}

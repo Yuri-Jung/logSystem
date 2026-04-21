@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "db-log.schema.json",
+  "title": "DbLog",
+  "description": "데이터베이스 쿼리 실행에 대한 로그. MyBatis Interceptor 또는 AOP로 수집.",
+  "type": "object",
+  "required": ["traceId", "spanId", "parentSpanId", "logType", "timestamp", "level", "service", "environment", "db"],
+  "properties": {
+    "traceId":      { "type": "string", "format": "uuid" },
+    "spanId":       { "type": "string", "format": "uuid" },
+    "parentSpanId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "이 DB 호출을 유발한 API span의 spanId"
+    },
+    "logType":     { "type": "string", "const": "DB" },
+    "timestamp":   { "type": "string", "format": "date-time" },
+    "level":       { "type": "string", "enum": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] },
+    "service":     { "type": "string" },
+    "environment": { "type": "string", "enum": ["local", "dev", "staging", "prod"] },
+    "host":        { "type": "string" },
+    "appVersion":  { "type": "string" },
+    "threadName":  { "type": "string" },
+
+    "db": {
+      "type": "object",
+      "description": "데이터베이스 실행 상세",
+      "required": ["datasource", "operation", "query", "durationMs"],
+      "properties": {
+        "datasource": {
+          "type": "string",
+          "description": "데이터소스 식별자 (다중 DB 환경 대비)",
+          "examples": ["logsystem-primary", "logsystem-replica"]
+        },
+        "operation": {
+          "type": "string",
+          "enum": ["SELECT", "INSERT", "UPDATE", "DELETE", "CALL", "DDL", "BATCH"],
+          "description": "SQL 작업 유형"
+        },
+        "mapper": {
+          "type": "string",
+          "description": "MyBatis Mapper ID (e.g. com.logSystem.log.repository.LogMapper.insertLog)"
+        },
+        "table": {
+          "type": ["string", "null"],
+          "description": "주 대상 테이블명 (파악 가능한 경우)"
+        },
+        "query": {
+          "type": "string",
+          "description": "실행된 SQL. 바인딩 전 원본 쿼리 (파라미터는 ? 또는 #{} 형태 유지)"
+        },
+        "parameters": {
+          "type": ["array", "null"],
+          "description": "바인딩 파라미터 목록. PII/민감 데이터는 마스킹",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index":  { "type": "integer" },
+              "name":   { "type": "string" },
+              "value":  {},
+              "type":   { "type": "string", "description": "JDBC 타입 (e.g. VARCHAR, BIGINT)" }
+            }
+          }
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "쿼리 실행 시간 (ms). 슬로우 쿼리 기준값과 비교에 사용"
+        },
+        "rowCount": {
+          "type": ["integer", "null"],
+          "description": "SELECT 결과 행 수"
+        },
+        "affectedRows": {
+          "type": ["integer", "null"],
+          "description": "INSERT/UPDATE/DELETE 영향 행 수"
+        },
+        "isSlow": {
+          "type": "boolean",
+          "description": "슬로우 쿼리 여부 (기준: durationMs > 1000)"
+        },
+        "connectionId": {
+          "type": "string",
+          "description": "커넥션 풀 내 커넥션 식별자"
+        },
+        "transactionId": {
+          "type": ["string", "null"],
+          "description": "트랜잭션 ID. 트랜잭션 범위 내 여러 쿼리 묶기에 사용"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+
+  "additionalProperties": false,
+
+  "examples": [
+    {
+      "traceId": "550e8400-e29b-41d4-a716-446655440000",
+      "spanId": "7fa3c920-1abc-42de-b312-99fc12ab3451",
+      "parentSpanId": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      "logType": "DB",
+      "timestamp": "2026-04-21T10:00:00.150Z",
+      "level": "INFO",
+      "service": "logsystem-backend",
+      "environment": "local",
+      "host": "localhost",
+      "appVersion": "0.0.1-SNAPSHOT",
+      "threadName": "http-nio-8080-exec-1",
+      "db": {
+        "datasource": "logsystem-primary",
+        "operation": "SELECT",
+        "mapper": "com.logSystem.log.repository.LogMapper.findAllLogs",
+        "table": "logs",
+        "query": "SELECT id, level, message, source, created_at FROM logs ORDER BY created_at DESC LIMIT #{size} OFFSET #{offset}",
+        "parameters": [
+          { "index": 1, "name": "size",   "value": 10,  "type": "INTEGER" },
+          { "index": 2, "name": "offset", "value": 0,   "type": "INTEGER" }
+        ],
+        "durationMs": 12,
+        "rowCount": 10,
+        "affectedRows": null,
+        "isSlow": false,
+        "connectionId": "pool-conn-3",
+        "transactionId": null
+      }
+    }
+  ]
+}

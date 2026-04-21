@@ -4,6 +4,11 @@ spring:
   profiles:
     active: dev # 기본으로 dev(로컬) 환경 실행
 
+  # Jackson 3.x: ISO-8601이 기본값이므로 write-dates-as-timestamps 설정 불필요
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+
 # 공통 MyBatis Configuration
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml
@@ -18,3 +23,12 @@ mybatis:
 # 공통 서버 설정
 server:
   port: 8080
+
+# 로깅: MDC의 traceId/spanId를 콘솔 패턴에 포함
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSS} %-5level [%X{traceId:-NO_TRACE},%X{spanId:-NO_SPAN}] [%thread] %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.logSystem: DEBUG
+    STRUCTURED: INFO   # LogWriter 전용 구조화 로그 레벨

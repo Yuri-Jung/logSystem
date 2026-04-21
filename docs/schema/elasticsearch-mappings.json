@@ -1,0 +1,202 @@
+{
+  "_comment": "Elasticsearch 8.x 인덱스 매핑 — 로그 타입별 인덱스 분리 전략 (logs-api-*, logs-db-*, logs-external-*, logs-error-*)",
+
+  "logs-api": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "traceId":       { "type": "keyword" },
+        "spanId":        { "type": "keyword" },
+        "parentSpanId":  { "type": "keyword" },
+        "logType":       { "type": "keyword" },
+        "timestamp":     { "type": "date" },
+        "level":         { "type": "keyword" },
+        "service":       { "type": "keyword" },
+        "environment":   { "type": "keyword" },
+        "host":          { "type": "keyword" },
+        "appVersion":    { "type": "keyword" },
+        "threadName":    { "type": "keyword" },
+        "http": {
+          "properties": {
+            "method":     { "type": "keyword" },
+            "path":       { "type": "keyword" },
+            "pathRaw":    { "type": "keyword" },
+            "query":      { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+            "statusCode": { "type": "short" },
+            "durationMs": { "type": "integer" }
+          }
+        },
+        "request": {
+          "properties": {
+            "clientIp":   { "type": "ip" },
+            "userAgent":  { "type": "text" },
+            "bodySize":   { "type": "integer" },
+            "referer":    { "type": "keyword" }
+          }
+        },
+        "response": {
+          "properties": {
+            "bodySize":   { "type": "integer" }
+          }
+        },
+        "auth": {
+          "properties": {
+            "userId":     { "type": "keyword" },
+            "roles":      { "type": "keyword" }
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.refresh_interval": "5s"
+    }
+  },
+
+  "logs-db": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "traceId":       { "type": "keyword" },
+        "spanId":        { "type": "keyword" },
+        "parentSpanId":  { "type": "keyword" },
+        "logType":       { "type": "keyword" },
+        "timestamp":     { "type": "date" },
+        "level":         { "type": "keyword" },
+        "service":       { "type": "keyword" },
+        "environment":   { "type": "keyword" },
+        "host":          { "type": "keyword" },
+        "appVersion":    { "type": "keyword" },
+        "threadName":    { "type": "keyword" },
+        "db": {
+          "properties": {
+            "datasource":    { "type": "keyword" },
+            "operation":     { "type": "keyword" },
+            "mapper":        { "type": "keyword" },
+            "table":         { "type": "keyword" },
+            "query":         { "type": "text" },
+            "durationMs":    { "type": "integer" },
+            "rowCount":      { "type": "integer" },
+            "affectedRows":  { "type": "integer" },
+            "isSlow":        { "type": "boolean" },
+            "connectionId":  { "type": "keyword" },
+            "transactionId": { "type": "keyword" }
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.refresh_interval": "5s"
+    }
+  },
+
+  "logs-external-api": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "traceId":       { "type": "keyword" },
+        "spanId":        { "type": "keyword" },
+        "parentSpanId":  { "type": "keyword" },
+        "logType":       { "type": "keyword" },
+        "timestamp":     { "type": "date" },
+        "level":         { "type": "keyword" },
+        "service":       { "type": "keyword" },
+        "environment":   { "type": "keyword" },
+        "host":          { "type": "keyword" },
+        "appVersion":    { "type": "keyword" },
+        "threadName":    { "type": "keyword" },
+        "target": {
+          "properties": {
+            "service":              { "type": "keyword" },
+            "url":                  { "type": "keyword" },
+            "method":               { "type": "keyword" },
+            "statusCode":           { "type": "short" },
+            "durationMs":           { "type": "integer" },
+            "isTimeout":            { "type": "boolean" },
+            "retryCount":           { "type": "byte" },
+            "circuitBreakerState":  { "type": "keyword" }
+          }
+        },
+        "request": {
+          "properties": {
+            "bodySize": { "type": "integer" }
+          }
+        },
+        "response": {
+          "properties": {
+            "bodySize": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.refresh_interval": "5s"
+    }
+  },
+
+  "logs-error": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "traceId":       { "type": "keyword" },
+        "spanId":        { "type": "keyword" },
+        "parentSpanId":  { "type": "keyword" },
+        "logType":       { "type": "keyword" },
+        "timestamp":     { "type": "date" },
+        "level":         { "type": "keyword" },
+        "service":       { "type": "keyword" },
+        "environment":   { "type": "keyword" },
+        "host":          { "type": "keyword" },
+        "appVersion":    { "type": "keyword" },
+        "threadName":    { "type": "keyword" },
+        "error": {
+          "properties": {
+            "code":        { "type": "keyword" },
+            "type":        { "type": "keyword" },
+            "message":     { "type": "text", "fields": { "raw": { "type": "keyword", "ignore_above": 512 } } },
+            "stackTrace":  { "type": "text", "index": false },
+            "cause": {
+              "properties": {
+                "type":       { "type": "keyword" },
+                "message":    { "type": "text" },
+                "stackTrace": { "type": "text", "index": false }
+              }
+            }
+          }
+        },
+        "context": {
+          "properties": {
+            "originLogType": { "type": "keyword" },
+            "originSpanId":  { "type": "keyword" },
+            "httpMethod":    { "type": "keyword" },
+            "httpPath":      { "type": "keyword" },
+            "httpStatus":    { "type": "short" },
+            "userId":        { "type": "keyword" },
+            "additionalInfo": {
+              "type": "object",
+              "dynamic": true
+            }
+          }
+        },
+        "alert": {
+          "properties": {
+            "sent":      { "type": "boolean" },
+            "channel":   { "type": "keyword" },
+            "sentAt":    { "type": "date" }
+          }
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.refresh_interval": "1s",
+      "_comment": "에러 로그는 실시간성이 중요하므로 refresh_interval을 짧게 설정"
+    }
+  }
+}
