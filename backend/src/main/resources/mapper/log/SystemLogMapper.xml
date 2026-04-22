@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.logSystem.log.repository.SystemLogMapper">
+
+    <insert id="insert" parameterType="com.logSystem.log.domain.SystemLog">
+        INSERT INTO system_logs (
+            log_type,
+            trace_id,
+            span_id,
+            parent_span_id,
+            service,
+            level,
+            duration_ms,
+            payload,
+            logged_at,
+            consumed_at
+        ) VALUES (
+            #{logType},
+            #{traceId},
+            #{spanId},
+            #{parentSpanId},
+            #{service},
+            #{level},
+            #{durationMs},
+            #{payloadJson},
+            #{loggedAt},
+            #{consumedAt}
+        )
+    </insert>
+
+</mapper>

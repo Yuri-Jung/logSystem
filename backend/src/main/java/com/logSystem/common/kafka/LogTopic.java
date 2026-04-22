@@ -9,6 +9,12 @@ public enum LogTopic {
     EXTERNAL_API("log-external"),
     ERROR("log-error");
 
+  /** @KafkaListener topics 속성은 상수 참조만 허용하므로 별도 상수로 노출 */
+  public static final String API_TOPIC          = "log-api";
+  public static final String DB_TOPIC           = "log-db";
+  public static final String EXTERNAL_API_TOPIC = "log-external";
+  public static final String ERROR_TOPIC        = "log-error";
+
     public final String topicName;
 
     LogTopic(String topicName) {
