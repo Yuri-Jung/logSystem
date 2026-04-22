@@ -2,13 +2,14 @@ package com.logSystem.common.logging;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import com.logSystem.common.kafka.LogKafkaProducer;
 import com.logSystem.log.domain.*;
 import com.logSystem.log.domain.payload.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerMapping;
 
@@ -18,23 +19,22 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * {@link com.logSystem.log.domain.LogEntry}를 JSON으로 직렬화하여
- * {@code STRUCTURED} 로거에 기록한다.
- *
- * <p>Kafka가 도입되면 Slf4j 출력 대신 Kafka ProducerTemplate 호출로 교체한다.
- */
 @Component
-@RequiredArgsConstructor
 public class LogWriter {
 
-    /** 구조화 로그 전용 로거 — logback에서 별도 appender로 라우팅 가능 */
     private static final Logger STRUCTURED = LoggerFactory.getLogger("STRUCTURED");
 
     private static final String SERVICE_NAME = "logsystem-backend";
     private static final String APP_VERSION  = "0.0.1-SNAPSHOT";
 
     private final ObjectMapper objectMapper;
+
+    @Autowired(required = false)
+    private LogKafkaProducer kafkaProducer;
+
+    public LogWriter(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     // ──────────────────────────────────────────────────────────────────────
     // API 로그 (TraceFilter에서 호출)
@@ -235,6 +235,10 @@ public class LogWriter {
             }
         } catch (JacksonException e) {
             STRUCTURED.error("{\"error\":\"log serialization failed\",\"cause\":\"{}\"}", e.getMessage());
+        }
+
+        if (kafkaProducer != null) {
+            kafkaProducer.send(entry);
         }
     }
 

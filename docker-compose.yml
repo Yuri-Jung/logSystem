@@ -19,7 +19,7 @@ services:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-log:/var/lib/zookeeper/log
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      test: ["CMD", "bash", "-c", "echo srvr | nc localhost 2181 | grep -q 'Zookeeper version'"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -100,31 +100,31 @@ services:
   # ─────────────────────────────────────────
   # Spring Boot Backend
   # ─────────────────────────────────────────
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: logsystem-backend:local
-    container_name: logsystem-backend
-    restart: unless-stopped
-    mem_limit: 512m
-    depends_on:
-      mysql:
-        condition: service_healthy
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      # .env의 127.0.0.1 대신 Docker 내부 서비스명(mysql)으로 오버라이드
-      DEV_DB_URL: "jdbc:mysql://mysql:3306/logsystem?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true"
-      DEV_DB_USERNAME: root
-      DEV_DB_PASSWORD: root1234
-    ports:
-      - "8082:8080"   # 로컬 실행 중인 앱(8080, 8081) 충돌 방지
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/test"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   image: logsystem-backend:local
+  #   container_name: logsystem-backend
+  #   restart: unless-stopped
+  #   mem_limit: 512m
+  #   depends_on:
+  #     mysql:
+  #       condition: service_healthy
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: dev
+  #     # .env의 127.0.0.1 대신 Docker 내부 서비스명(mysql)으로 오버라이드
+  #     DEV_DB_URL: "jdbc:mysql://mysql:3306/logsystem?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true"
+  #     DEV_DB_USERNAME: root
+  #     DEV_DB_PASSWORD: root1234
+  #   ports:
+  #     - "8082:8080"   # 로컬 실행 중인 앱(8080, 8081) 충돌 방지
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-sf", "http://localhost:8080/api/test"]
+  #     interval: 20s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 60s
 
   # ─────────────────────────────────────────
   # Elasticsearch
@@ -157,6 +157,22 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+
+  # ─────────────────────────────────────────
+  # Kafka UI
+  # ─────────────────────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: logsystem-kafka-ui
+    restart: unless-stopped
+    ports:
+      - "8989:8080"   # 로컬 8080 충돌 방지
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
 
 # ─────────────────────────────────────────
 # Named Volumes

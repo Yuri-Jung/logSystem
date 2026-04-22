@@ -3,6 +3,8 @@ spring:
     name: logSystem
   profiles:
     active: dev # 기본으로 dev(로컬) 환경 실행
+  kafka:
+    bootstrap-servers: localhost:9092
 
   # Jackson 3.x: ISO-8601이 기본값이므로 write-dates-as-timestamps 설정 불필요
   jackson:
