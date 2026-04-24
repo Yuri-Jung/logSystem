@@ -3,6 +3,8 @@ spring:
     name: logSystem
   profiles:
     active: dev # 기본으로 dev(로컬) 환경 실행
+  config:
+    import: optional:file:.env[.properties]
   kafka:
     bootstrap-servers: localhost:9092
 

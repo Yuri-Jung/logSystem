@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -24,6 +25,7 @@ import java.util.Map;
  *
  * @author Yuri-JUNG
  */
+@EnableKafka
 @Configuration
 @ConditionalOnProperty(name = "spring.kafka.bootstrap-servers")
 public class KafkaConsumerConfig {
@@ -74,6 +76,8 @@ public class KafkaConsumerConfig {
         new ConcurrentKafkaListenerContainerFactory<>();
 
     factory.setConsumerFactory(consumerFactory);
+    // 존재하지 않는 토픽 구독 시 컨테이너 시작 실패 방지
+    factory.setMissingTopicsFatal(false);
 
     // 처리 완료 후 Acknowledgment.acknowledge() 호출 시점에 커밋
     factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
