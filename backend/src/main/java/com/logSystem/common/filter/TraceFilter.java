@@ -52,7 +52,7 @@ public class TraceFilter extends OncePerRequestFilter {
 
         long startNanos = System.nanoTime();
         try {
-            chain.doFilter(request, response);
+            chain.doFilter(request, response); // 요청 처리(API 컨트롤러 호출)
         } finally {
             long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
             // rootSpanId를 직접 전달 — 자식 span이 복원되지 않은 예외 경로에서도 안전

@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.JsonParseException;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -74,12 +74,12 @@ public class LogKafkaConsumer {
       containerFactory = "kafkaListenerContainerFactory"
   )
   public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
-    String raw = record.value();
-
+    String raw = record.value(); // Kafka에서 꺼낸 메시지 json 문자열
+    // 1. JSON → JsonNode (파싱 실패 시 건너뜀)
     JsonNode root;
     try {
       root = objectMapper.readTree(raw);
-    } catch (JsonParseException e) {
+    } catch (JacksonException e) {
       // JSON 자체가 깨진 경우 — 재시도해도 동일하게 실패하므로 건너뜀
       log.error(
           "역직렬화 실패: JSON 파싱 불가 [topic={}, partition={}, offset={}] raw={}",
@@ -88,10 +88,10 @@ public class LogKafkaConsumer {
       ack.acknowledge(); // 파싱 불가 메시지를 건너뛰어 Consumer 블로킹 방지
       return;
     }
-
+    // 2. SystemLog 도메인 객체 생성 → MySQL 저장
     try {
-      SystemLog systemLog = toSystemLog(root);
-      systemLogMapper.insert(systemLog);
+      SystemLog systemLog = toSystemLog(root);  // ← MySQL INSERT 실행
+      systemLogMapper.insert(systemLog);        // 저장 성공 후 오프셋 커밋
       ack.acknowledge();
 
       log.debug(
@@ -104,6 +104,7 @@ public class LogKafkaConsumer {
     } catch (Exception e) {
       // DB 저장 실패 — DefaultErrorHandler의 지수 백오프 재시도에 위임
       // ack를 호출하지 않으므로 오프셋이 커밋되지 않아 재처리 보장
+      // ack 미호출 → 오프셋 미커밋 → 재처리 보장
       log.error(
           "로그 저장 실패: 재시도 예정 [topic={}, partition={}, offset={}, traceId={}] cause={}",
           record.topic(), record.partition(), record.offset(),
@@ -127,15 +128,16 @@ public class LogKafkaConsumer {
         ? null
         : Instant.parse(root.path("timestamp").asText());
 
-    // payload 노드가 없으면 빈 JSON 객체로 대체
+    // payload 노드가 없으면 빈 JSON 객체로 대체(노드 통째로 json 문자열로 보존)
+    // → Consumer가 Producer의 payload 구조 변경에 독립적
     JsonNode payloadNode = root.path("payload");
     String payloadJson = payloadNode.isMissingNode() ? "{}" : payloadNode.toString();
 
     return SystemLog.of(
-        text(root, "logType"),
+        text(root, "logType"),  // "DB" or "API"
         text(root, "traceId"),
         text(root, "spanId"),
-        textOrNull(root, "parentSpanId"),
+        textOrNull(root, "parentSpanId"), // null 가능
         text(root, "service"),
         text(root, "level"),
         longOrNull(root, "durationMs"),
@@ -143,7 +145,8 @@ public class LogKafkaConsumer {
         payloadJson
     );
   }
-
+  // consumedAt = LocalDateTime.now() 자동 설정됨 (SystemLog.of 내부)
+  
   /** 필드 값을 문자열로 반환. 필드가 없으면 빈 문자열 반환 */
   private String text(JsonNode node, String field) {
     return node.path(field).asText("");

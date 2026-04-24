@@ -31,13 +31,14 @@ public class TestApiController {
      */
     @GetMapping("/success")
     public ResponseEntity<Map<String, Object>> success() {
-        String parentSpanId = LogContextHolder.startChildSpan();
+        String parentSpanId = LogContextHolder.startChildSpan(); // MDC에 spanId 등록
         long start = System.currentTimeMillis();
         try {
             // 실제 DB 호출을 흉내 낸 즉각 완료
             simulateInstantQuery();
             long duration = System.currentTimeMillis() - start;
 
+            // DB 로그 작성
             logWriter.writeDbLog(
                     parentSpanId,
                     "com.logSystem.log.repository.LogMapper.findAllLogs",

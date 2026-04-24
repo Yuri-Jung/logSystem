@@ -237,8 +237,9 @@ public class LogWriter {
             STRUCTURED.error("{\"error\":\"log serialization failed\",\"cause\":\"{}\"}", e.getMessage());
         }
 
+        // Kafka로 전송
         if (kafkaProducer != null) {
-            kafkaProducer.send(entry);
+            kafkaProducer.send(entry); //  여기서 Producer 호출
         }
     }
 
