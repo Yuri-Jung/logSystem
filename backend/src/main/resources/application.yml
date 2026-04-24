@@ -8,6 +8,11 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
 
+  elasticsearch:
+    uris: http://localhost:9200
+    connection-timeout: 5s
+    socket-timeout: 30s
+
   # Jackson 3.x: ISO-8601이 기본값이므로 write-dates-as-timestamps 설정 불필요
   jackson:
     deserialization:

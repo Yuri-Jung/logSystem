@@ -57,6 +57,8 @@ public class LogKafkaProducer {
                 entry.level().name(),
                 extractDurationMs(entry),
                 entry.timestamp(),
+                entry.environment() != null ? entry.environment().name() : null,
+                entry.host(),
                 entry.payload()
         );
 
