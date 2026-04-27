@@ -8,6 +8,7 @@ import java.util.List;
  *
  * <p>모든 필드는 optional이다. null인 필드는 검색 조건에서 제외된다.
  *
+ * @param traceId     요청 흐름 식별자 — 4개 인덱스 cross-index 조회 (null = 전체)
  * @param level       INFO | WARN | ERROR (null = 전체)
  * @param service     서비스명 정확 일치 필터 (null = 전체)
  * @param logType     API | DB | EXTERNAL_API | ERROR (null = 전체)
@@ -19,6 +20,7 @@ import java.util.List;
  *                    (null이면 from/size 페이지네이션 사용)
  */
 public record LogSearchCondition(
+    String        traceId,
     String        level,
     String        service,
     String        logType,
