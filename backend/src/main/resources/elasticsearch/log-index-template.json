@@ -1,0 +1,33 @@
+{
+  "index_patterns": ["log-api", "log-db", "log-external", "log-error"],
+  "data_stream": {
+    "timestamp_field": {
+      "name": "timestamp"
+    }
+  },
+  "template": {
+    "settings": {
+      "index.lifecycle.name": "log-ilm-policy",
+      "number_of_shards": 1,
+      "number_of_replicas": 1
+    },
+    "mappings": {
+      "properties": {
+        "timestamp": {
+          "type": "date",
+          "format": "strict_date_optional_time"
+        },
+        "traceId":      { "type": "keyword" },
+        "spanId":       { "type": "keyword" },
+        "parentSpanId": { "type": "keyword" },
+        "level":        { "type": "keyword" },
+        "service":      { "type": "keyword" },
+        "environment":  { "type": "keyword" },
+        "host":         { "type": "keyword" },
+        "logType":      { "type": "keyword" },
+        "durationMs":   { "type": "long" }
+      }
+    }
+  },
+  "priority": 500
+}
