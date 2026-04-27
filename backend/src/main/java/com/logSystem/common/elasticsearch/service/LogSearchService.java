@@ -2,6 +2,7 @@ package com.logSystem.common.elasticsearch.service;
 
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch._types.aggregations.CalendarInterval;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.logSystem.common.elasticsearch.document.ApiLogDocument;
@@ -9,6 +10,7 @@ import com.logSystem.common.elasticsearch.document.BaseDocument;
 import com.logSystem.common.elasticsearch.document.DbLogDocument;
 import com.logSystem.common.elasticsearch.document.ErrorLogDocument;
 import com.logSystem.common.elasticsearch.document.ExternalApiLogDocument;
+import com.logSystem.common.elasticsearch.dto.ErrorTrendPoint;
 import com.logSystem.common.elasticsearch.dto.LogAggregationResult;
 import com.logSystem.common.elasticsearch.dto.LogSearchCondition;
 import com.logSystem.common.elasticsearch.dto.LogSearchResponse;
@@ -28,6 +30,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.List;
 
 /**
@@ -131,6 +134,51 @@ public class LogSearchService {
     long   errorCount = countErrors(fromStr);
 
     return new LogAggregationResult(avgMs, errorCount);
+  }
+
+  /**
+   * 최근 N시간 동안의 시간대별 에러 발생 추이를 1시간 단위 버킷으로 집계한다.
+   *
+   * <p>date_histogram 집계를 사용하며, 에러가 없는 버킷은 결과에 포함되지 않는다.
+   * 프론트엔드 Recharts 차트 데이터로 직접 사용된다.
+   *
+   * @param hours 조회할 시간 범위 (기본값 24시간)
+   * @return 시간대별 에러 발생 건수 목록 (시간 오름차순)
+   */
+  public List<ErrorTrendPoint> getErrorTrend(int hours) {
+    String fromStr = Instant.now().minus(hours, ChronoUnit.HOURS).toString();
+
+    NativeQuery query = NativeQuery.builder()
+        .withQuery(q -> q.range(r -> r.date(d -> d.field("timestamp").gte(fromStr))))
+        .withAggregation("errorByHour", Aggregation.of(a -> a
+            .dateHistogram(dh -> dh
+                .field("timestamp")
+                .calendarInterval(CalendarInterval.Hour)
+                .timeZone("Asia/Seoul")
+            )
+        ))
+        .withMaxResults(0)
+        .build();
+
+    SearchHits<ErrorLogDocument> hits = esOperations.search(query, ErrorLogDocument.class);
+
+    if (hits.getAggregations() == null) return List.of();
+
+    try {
+      ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+      ElasticsearchAggregation  agg  = aggs.get("errorByHour");
+      if (agg == null) return List.of();
+
+      return agg.aggregation().getAggregate().dateHistogram().buckets().array().stream()
+          .map(bucket -> new ErrorTrendPoint(
+              Instant.ofEpochMilli(bucket.key()),
+              bucket.docCount()
+          ))
+          .toList();
+    } catch (Exception e) {
+      log.warn("에러 추이 집계 결과 추출 실패: {}", e.getMessage());
+      return List.of();
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
