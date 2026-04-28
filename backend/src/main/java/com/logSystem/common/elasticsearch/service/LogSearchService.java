@@ -11,6 +11,8 @@ import com.logSystem.common.elasticsearch.document.DbLogDocument;
 import com.logSystem.common.elasticsearch.document.ErrorLogDocument;
 import com.logSystem.common.elasticsearch.document.ExternalApiLogDocument;
 import com.logSystem.common.elasticsearch.dto.ErrorTrendPoint;
+import com.logSystem.common.elasticsearch.dto.ExceptionRankItem;
+import com.logSystem.common.elasticsearch.dto.HourlyLogTrendPoint;
 import com.logSystem.common.elasticsearch.dto.LogAggregationResult;
 import com.logSystem.common.elasticsearch.dto.LogSearchCondition;
 import com.logSystem.common.elasticsearch.dto.LogSearchResponse;
@@ -31,7 +33,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Elasticsearch 로그 검색·집계 서비스.
@@ -131,9 +134,10 @@ public class LogSearchService {
     String fromStr = Instant.now().minus(1, ChronoUnit.HOURS).toString();
 
     Double avgMs      = aggregateAvgApiResponseTime(fromStr);
+    Double p95Ms      = aggregateP95ApiResponseTime(fromStr);
     long   errorCount = countErrors(fromStr);
 
-    return new LogAggregationResult(avgMs, errorCount);
+    return new LogAggregationResult(avgMs, p95Ms, errorCount);
   }
 
   /**
@@ -184,6 +188,142 @@ public class LogSearchService {
   // ──────────────────────────────────────────────────────────────────────────
   // 내부 헬퍼
   // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 최근 N시간 동안의 시간대별 API·DB·Error 로그 발생 추이를 1시간 단위로 집계한다.
+   *
+   * <p>3개 인덱스에 date_histogram 집계를 각각 실행하고 시간 키 기준으로 병합한다.
+   * 데이터가 없는 시간 버킷은 결과에서 제외된다.
+   *
+   * @param hours 조회 시간 범위
+   * @return 시간 오름차순 데이터 포인트 목록
+   */
+  public List<HourlyLogTrendPoint> getHourlyLogTrend(int hours) {
+    String fromStr = Instant.now().minus(hours, ChronoUnit.HOURS).toString();
+
+    Map<Long, Long> apiCounts   = fetchHourlyBuckets(fromStr, ApiLogDocument.class);
+    Map<Long, Long> dbCounts    = fetchHourlyBuckets(fromStr, DbLogDocument.class);
+    Map<Long, Long> errorCounts = fetchHourlyBuckets(fromStr, ErrorLogDocument.class);
+
+    TreeMap<Long, Long[]> merged = new TreeMap<>();
+    apiCounts.forEach((k, v)   -> merged.computeIfAbsent(k, x -> new Long[]{0L, 0L, 0L})[0] = v);
+    dbCounts.forEach((k, v)    -> merged.computeIfAbsent(k, x -> new Long[]{0L, 0L, 0L})[1] = v);
+    errorCounts.forEach((k, v) -> merged.computeIfAbsent(k, x -> new Long[]{0L, 0L, 0L})[2] = v);
+
+    return merged.entrySet().stream()
+        .map(e -> new HourlyLogTrendPoint(
+            Instant.ofEpochMilli(e.getKey()),
+            e.getValue()[0],
+            e.getValue()[1],
+            e.getValue()[2]
+        ))
+        .toList();
+  }
+
+  /**
+   * log-error 인덱스에서 발생 빈도 상위 N개 예외 클래스 통계를 반환한다.
+   *
+   * <p>exceptionClass 필드의 terms 집계를 사용한다.
+   * exceptionClass 미입력(null) 도큐먼트는 집계에서 자동으로 제외된다.
+   *
+   * @param limit 조회할 최대 항목 수 (보통 5)
+   * @return 발생 건수 내림차순 예외 클래스 목록
+   */
+  public List<ExceptionRankItem> getTopExceptions(int limit) {
+    NativeQuery query = NativeQuery.builder()
+        .withQuery(q -> q.matchAll(m -> m))
+        .withAggregation("topExceptions", Aggregation.of(a -> a
+            .terms(t -> t.field("exceptionClass").size(limit))
+        ))
+        .withMaxResults(0)
+        .build();
+
+    try {
+      SearchHits<ErrorLogDocument> hits = esOperations.search(query, ErrorLogDocument.class);
+      if (hits.getAggregations() == null) return List.of();
+
+      ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+      ElasticsearchAggregation  agg  = aggs.get("topExceptions");
+      if (agg == null) return List.of();
+
+      return agg.aggregation().getAggregate().sterms().buckets().array().stream()
+          .map(bucket -> new ExceptionRankItem(bucket.key().stringValue(), bucket.docCount()))
+          .toList();
+    } catch (Exception e) {
+      log.warn("Top 예외 집계 실패: {}", e.getMessage());
+      return List.of();
+    }
+  }
+
+  /**
+   * 단일 인덱스의 date_histogram 집계 결과를 epochMs → docCount 맵으로 반환한다.
+   *
+   * <p>{@link #getHourlyLogTrend(int)} 에서 3개 인덱스를 병렬로 집계할 때 재사용된다.
+   */
+  private <T extends BaseDocument> Map<Long, Long> fetchHourlyBuckets(
+      String fromStr, Class<T> clazz
+  ) {
+    NativeQuery query = NativeQuery.builder()
+        .withQuery(q -> q.range(r -> r.date(d -> d.field("timestamp").gte(fromStr))))
+        .withAggregation("byHour", Aggregation.of(a -> a
+            .dateHistogram(dh -> dh
+                .field("timestamp")
+                .calendarInterval(CalendarInterval.Hour)
+            )
+        ))
+        .withMaxResults(0)
+        .build();
+
+    try {
+      SearchHits<T> hits = esOperations.search(query, clazz);
+      if (hits.getAggregations() == null) return Map.of();
+
+      ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+      ElasticsearchAggregation  agg  = aggs.get("byHour");
+      if (agg == null) return Map.of();
+
+      Map<Long, Long> result = new TreeMap<>();
+      agg.aggregation().getAggregate().dateHistogram().buckets().array()
+          .forEach(bucket -> result.put(bucket.key(), bucket.docCount()));
+      return result;
+    } catch (Exception e) {
+      log.warn("시간별 버킷 추출 실패 [index={}]: {}", clazz.getSimpleName(), e.getMessage());
+      return Map.of();
+    }
+  }
+
+  /**
+   * 최근 N시간 동안의 API 응답 시간 P95를 집계한다.
+   *
+   * <p>Elasticsearch tdigest percentiles 집계를 사용한다.
+   * 데이터가 없으면 null을 반환한다.
+   */
+  private Double aggregateP95ApiResponseTime(String fromStr) {
+    NativeQuery query = NativeQuery.builder()
+        .withQuery(q -> q.range(r -> r.date(d -> d.field("timestamp").gte(fromStr))))
+        .withAggregation("p95", Aggregation.of(a -> a
+            .percentiles(p -> p.field("durationMs").percents(List.of(95.0)))
+        ))
+        .withMaxResults(0)
+        .build();
+
+    try {
+      SearchHits<ApiLogDocument> hits = esOperations.search(query, ApiLogDocument.class);
+      if (hits.getAggregations() == null) return null;
+
+      ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+      ElasticsearchAggregation  agg  = aggs.get("p95");
+      if (agg == null) return null;
+
+      var keyedValues = agg.aggregation().getAggregate().tdigestPercentiles().values().keyed();
+      if (keyedValues == null || !keyedValues.containsKey("95.0")) return null;
+      double value = Double.parseDouble(String.valueOf(keyedValues.get("95.0")));
+      return (Double.isNaN(value) || Double.isInfinite(value)) ? null : value;
+    } catch (Exception e) {
+      log.warn("P95 집계 결과 추출 실패: {}", e.getMessage());
+      return null;
+    }
+  }
 
   private Double aggregateAvgApiResponseTime(String fromStr) {
     NativeQuery query = NativeQuery.builder()

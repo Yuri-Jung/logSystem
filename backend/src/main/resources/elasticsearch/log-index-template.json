@@ -1,33 +1,64 @@
 {
-  "index_patterns": ["log-api", "log-db", "log-external", "log-error"],
-  "data_stream": {
-    "timestamp_field": {
-      "name": "timestamp"
-    }
-  },
+  "index_patterns": ["log-*"],
+  "priority": 100,
   "template": {
     "settings": {
       "index.lifecycle.name": "log-ilm-policy",
       "number_of_shards": 1,
-      "number_of_replicas": 1
+      "number_of_replicas": 0,
+      "index.refresh_interval": "5s"
     },
     "mappings": {
+      "dynamic": false,
       "properties": {
-        "timestamp": {
-          "type": "date",
-          "format": "strict_date_optional_time"
+        "@timestamp":          { "type": "date" },
+
+        "traceId":             { "type": "keyword" },
+        "spanId":              { "type": "keyword" },
+        "parentSpanId":        { "type": "keyword" },
+        "timestamp":           { "type": "date",    "format": "strict_date_optional_time" },
+        "level":               { "type": "keyword" },
+        "service":             { "type": "keyword" },
+        "environment":         { "type": "keyword" },
+        "host":                { "type": "keyword" },
+        "logType":             { "type": "keyword" },
+        "durationMs":          { "type": "long"    },
+
+        "method":              { "type": "keyword" },
+        "path":                { "type": "keyword" },
+        "pathRaw":             { "type": "keyword" },
+        "statusCode":          { "type": "integer" },
+        "clientIp":            { "type": "keyword" },
+        "userAgent":           { "type": "text",    "analyzer": "standard" },
+        "query": {
+          "type": "text",
+          "analyzer": "standard",
+          "fields": { "raw": { "type": "keyword" } }
         },
-        "traceId":      { "type": "keyword" },
-        "spanId":       { "type": "keyword" },
-        "parentSpanId": { "type": "keyword" },
-        "level":        { "type": "keyword" },
-        "service":      { "type": "keyword" },
-        "environment":  { "type": "keyword" },
-        "host":         { "type": "keyword" },
-        "logType":      { "type": "keyword" },
-        "durationMs":   { "type": "long" }
+
+        "operation":           { "type": "keyword" },
+        "mapper":              { "type": "keyword" },
+        "table":               { "type": "keyword" },
+        "rowCount":            { "type": "integer" },
+        "isSlow":              { "type": "boolean" },
+
+        "targetService":       { "type": "keyword" },
+        "url":                 { "type": "keyword" },
+        "isTimeout":           { "type": "boolean" },
+        "retryCount":          { "type": "integer" },
+        "circuitBreakerState": { "type": "keyword" },
+
+        "errorCode":           { "type": "keyword" },
+        "exceptionClass":      { "type": "keyword" },
+        "errorMessage":        { "type": "text",    "analyzer": "standard" },
+        "stackTrace":          { "type": "text",    "index": false },
+        "httpMethod":          { "type": "keyword" },
+        "httpPath":            { "type": "keyword" },
+        "httpStatus":          { "type": "integer" }
       }
     }
   },
-  "priority": 500
+  "_meta": {
+    "description": "log-* 패턴 공통 인덱스 템플릿. 4개 로그 타입(API/DB/External/Error)의 모든 필드를 통합 매핑하며 ILM 정책을 적용한다."
+  }
 }

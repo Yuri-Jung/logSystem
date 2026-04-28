@@ -5,7 +5,7 @@ const api = axios.create({
   timeout: 10_000,
 });
 
-/** 최근 1시간 집계 요약 (avgApiResponseTimeMs, errorCount) */
+/** 최근 1시간 집계 요약 (avgApiResponseTimeMs, p95ApiResponseTimeMs, errorCount) */
 export const fetchRecentStats = () =>
   api.get('/analysis/recent-stats').then(r => r.data);
 
@@ -15,6 +15,20 @@ export const fetchRecentStats = () =>
  */
 export const fetchErrorTrend = (hours = 24) =>
   api.get('/analysis/error-trend', { params: { hours } }).then(r => r.data);
+
+/**
+ * 시간대별 API·DB·Error 로그 발생 추이 (멀티라인 차트용)
+ * @param {number} hours 조회 범위 (기본 24시간)
+ */
+export const fetchLogTrend = (hours = 24) =>
+  api.get('/analysis/log-trend', { params: { hours } }).then(r => r.data);
+
+/**
+ * 발생 빈도 상위 N개 예외 클래스 통계 (수평 바 차트용)
+ * @param {number} limit 최대 항목 수 (기본 5)
+ */
+export const fetchTopExceptions = (limit = 5) =>
+  api.get('/analysis/top-exceptions', { params: { limit } }).then(r => r.data);
 
 /**
  * 로그 조건 검색

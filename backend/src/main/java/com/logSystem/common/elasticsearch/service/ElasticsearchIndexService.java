@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
@@ -61,7 +62,9 @@ public class ElasticsearchIndexService {
    *
    * <p>이미 존재하는 인덱스는 건너뛰므로 재시작 시 안전하게 호출된다.
    * ES가 미연결 상태(테스트 환경 포함)이면 경고 로그만 남기고 계속 진행한다.
+   * {@link Order}(2): ILM/템플릿 등록({@link IlmSetupService}) 이후 실행된다.
    */
+  @Order(2)
   @EventListener(ApplicationReadyEvent.class)
   public void initializeIndices() {
     try {

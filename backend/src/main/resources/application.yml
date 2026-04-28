@@ -10,8 +10,8 @@ spring:
 
   elasticsearch:
     uris: http://localhost:9200
-    connection-timeout: 5s
-    socket-timeout: 30s
+    connection-timeout: 3s   # ES 미기동 시 빠르게 실패 (Axios 10s보다 짧아야 함)
+    socket-timeout: 7s       # 30s → 7s: Axios timeout(10s) 내에 ES 에러 확정
 
   # Jackson 3.x: ISO-8601이 기본값이므로 write-dates-as-timestamps 설정 불필요
   jackson:

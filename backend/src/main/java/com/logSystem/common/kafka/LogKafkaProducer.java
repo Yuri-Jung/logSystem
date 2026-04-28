@@ -22,7 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class LogKafkaProducer {
 
     private static final Logger log        = LoggerFactory.getLogger(LogKafkaProducer.class);
-    private static final double SAMPLE_RATE = 0.10;
+    private static final int SAMPLE_RATE_PERCENT = 10;
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
@@ -95,7 +95,7 @@ public class LogKafkaProducer {
         if (durationMs != null && durationMs >= 1_000) {
             return true;
         }
-        return Math.abs(entry.traceId().hashCode()) % 100 < SAMPLE_RATE;
+        return Math.abs(entry.traceId().hashCode()) % 100 < SAMPLE_RATE_PERCENT;
     }
 
     /**
