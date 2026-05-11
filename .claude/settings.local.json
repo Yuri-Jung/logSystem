@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X PUT http://localhost:9200/_index_template/log-index-template -H 'Content-Type: application/json' -d '{ *)"
+    ]
+  }
+}

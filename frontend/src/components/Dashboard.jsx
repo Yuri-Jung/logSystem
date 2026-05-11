@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   LineChart, Line,
   BarChart, Bar,
@@ -80,13 +80,15 @@ function ExceptionTooltip({ active, payload }) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
-  const [stats,      setStats]      = useState(null);
-  const [trend,      setTrend]      = useState([]);
-  const [exceptions, setExceptions] = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(null);
-  const [hours,      setHours]      = useState(24);
-  const [lastUpdate, setLastUpdate] = useState(null);
+  const [stats,        setStats]        = useState(null);
+  const [trend,        setTrend]        = useState([]);
+  const [exceptions,   setExceptions]   = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
+  const [error,        setError]        = useState(null);
+  const [hours,        setHours]        = useState(24);
+  const [lastUpdate,   setLastUpdate]   = useState(null);
+  const refreshingRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const CALLS = [
@@ -142,7 +144,16 @@ export function Dashboard() {
 
     if (!failed.length) setLastUpdate(new Date());
     setLoading(false);
+    setRefreshing(false);
+    refreshingRef.current = false;
   }, [hours]);
+
+  const handleManualRefresh = useCallback(() => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    refresh();
+  }, [refresh]);
 
   usePolling(refresh, POLL_INTERVAL_MS);
 
@@ -173,13 +184,23 @@ export function Dashboard() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`w-2 h-2 rounded-full ${error ? 'bg-red-500' : 'bg-emerald-400 animate-pulse'}`}
-          />
-          <span className="text-xs text-gray-500">
-            {error ? '연결 오류' : '실시간 모니터링'}
-          </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-gray-800 text-gray-300
+                       hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {refreshing ? '갱신 중…' : '새로고침'}
+          </button>
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${error ? 'bg-red-500' : 'bg-emerald-400 animate-pulse'}`}
+            />
+            <span className="text-xs text-gray-500">
+              {error ? 'ES 연결 오류 — 파이프라인 확인 필요' : '실시간 모니터링'}
+            </span>
+          </div>
         </div>
       </header>
 

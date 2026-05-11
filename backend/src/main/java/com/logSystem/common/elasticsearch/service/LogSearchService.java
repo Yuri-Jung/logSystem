@@ -131,7 +131,8 @@ public class LogSearchService {
    * @return 집계 결과 (avgApiResponseTimeMs, errorCount)
    */
   public LogAggregationResult aggregateRecentStats() {
-    String fromStr = Instant.now().minus(1, ChronoUnit.HOURS).toString();
+    String fromStr = Instant.now().minus(1, ChronoUnit.HOURS)
+        .truncatedTo(ChronoUnit.MILLIS).toString();
 
     Double avgMs      = aggregateAvgApiResponseTime(fromStr);
     Double p95Ms      = aggregateP95ApiResponseTime(fromStr);
@@ -150,7 +151,8 @@ public class LogSearchService {
    * @return 시간대별 에러 발생 건수 목록 (시간 오름차순)
    */
   public List<ErrorTrendPoint> getErrorTrend(int hours) {
-    String fromStr = Instant.now().minus(hours, ChronoUnit.HOURS).toString();
+    String fromStr = Instant.now().minus(hours, ChronoUnit.HOURS)
+        .truncatedTo(ChronoUnit.MILLIS).toString();
 
     NativeQuery query = NativeQuery.builder()
         .withQuery(q -> q.range(r -> r.date(d -> d.field("timestamp").gte(fromStr))))
@@ -199,7 +201,8 @@ public class LogSearchService {
    * @return 시간 오름차순 데이터 포인트 목록
    */
   public List<HourlyLogTrendPoint> getHourlyLogTrend(int hours) {
-    String fromStr = Instant.now().minus(hours, ChronoUnit.HOURS).toString();
+    String fromStr = Instant.now().minus(hours, ChronoUnit.HOURS)
+        .truncatedTo(ChronoUnit.MILLIS).toString();
 
     Map<Long, Long> apiCounts   = fetchHourlyBuckets(fromStr, ApiLogDocument.class);
     Map<Long, Long> dbCounts    = fetchHourlyBuckets(fromStr, DbLogDocument.class);
